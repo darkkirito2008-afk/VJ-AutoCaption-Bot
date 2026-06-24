@@ -5,7 +5,7 @@ import sys
 from threading import Thread
 from flask import Flask
 
-# 1. Create a tiny web server to keep Render happy
+# 1. Create the dummy web server for Render's port scanner
 app = Flask('')
 
 @app.route('/')
@@ -13,16 +13,11 @@ def home():
     return "Bot is alive and running!"
 
 def run_web_server():
-    # Render automatically provides a PORT environment variable
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
-# 2. Main Telegram Bot Logic
-BOT_TOKEN = os.getenv("8938472941:AAHLT6qkmuFrWEdl8q1YeNUWe6rgyln-VtU")
-if not BOT_TOKEN:
-    print("❌ ERROR: 'BOT_TOKEN' environment variable is missing!")
-    sys.exit(1)
-
+# 2. Main Telegram Bot Logic (Token swapped successfully)
+BOT_TOKEN = "8938472941:AAHLT6qkmuFrWEdl8q1YeNUWe6rgyln-VtU"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 ep = 1
@@ -130,7 +125,6 @@ def command_restart(message):
     bot.reply_to(message, "🔄 Bot system memory fully reset to Episode 1!")
 
 if __name__ == "__main__":
-    # Start the dummy web port before polling so Render check succeeds
     server_thread = Thread(target=run_web_server)
     server_thread.daemon = True
     server_thread.start()
