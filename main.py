@@ -2,17 +2,29 @@ import os
 import telebot
 import re
 import sys
+from threading import Thread
+from flask import Flask
 
-# Retrieve token from environment variables safely
-BOT_TOKEN = ("8938472941:AAHLT6qkmuFrWEdl8q1YeNUWe6rgyln-VtU")
+# 1. Create a tiny web server to keep Render happy
+app = Flask('')
 
+@app.route('/')
+def home():
+    return "Bot is alive and running!"
+
+def run_web_server():
+    # Render automatically provides a PORT environment variable
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+# 2. Main Telegram Bot Logic
+BOT_TOKEN = os.getenv("8938472941:AAHLT6qkmuFrWEdl8q1YeNUWe6rgyln-VtU")
 if not BOT_TOKEN:
     print("❌ ERROR: 'BOT_TOKEN' environment variable is missing!")
     sys.exit(1)
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Memory states
 ep = 1
 cycle = 0
 last_processed_file_id = ""
@@ -117,5 +129,11 @@ def command_restart(message):
     last_processed_file_id = ""
     bot.reply_to(message, "🔄 Bot system memory fully reset to Episode 1!")
 
-print("🚀 CAPTION BOT ENGINE RUNNING ONLINE...")
-bot.infinity_polling()
+if __name__ == "__main__":
+    # Start the dummy web port before polling so Render check succeeds
+    server_thread = Thread(target=run_web_server)
+    server_thread.daemon = True
+    server_thread.start()
+    
+    print("🚀 CAPTION BOT ENGINE ACTIVE & WEB PORT OPEN...")
+    bot.infinity_polling()
