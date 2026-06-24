@@ -1,9 +1,15 @@
-cat << 'EOF' > bot.py
+import os
 import telebot
 import re
+import sys
 
-# Initialize the Python Bot engine with your token
-BOT_TOKEN = "8642173946:AAECP4OSifEKjCbuhK_VkfCQf8jcrMowK44"
+# Retrieve the hidden token from your hosting environment variables
+BOT_TOKEN = os.getenv("8938472941:AAHLT6qkmuFrWEdl8q1YeNUWe6rgyln-VtU")
+
+if not BOT_TOKEN:
+    print("❌ ERROR: 'BOT_TOKEN' environment variable is missing!")
+    sys.exit(1)
+
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Memory states
@@ -12,24 +18,15 @@ cycle = 0
 last_processed_file_id = ""
 manual_quality = None
 
-@bot.message_handler(content_types=['video', 'document', 'text'], func=lambda message: True)
-def handle_all_media(message):
+@bot.message_handler(content_types=['video', 'document'], func=lambda message: True)
+def handle_incoming_media(message):
     global ep, cycle, last_processed_file_id, manual_quality
     
-    if message.text and message.text.startswith('/'):
-        return
-
-    media = None
-    if message.video:
-        media = message.video
-    elif message.document:
-        media = message.document
-    
+    media = message.video or message.document
     if not media:
         return
         
     file_id = media.file_id
-    
     if file_id == last_processed_file_id:
         return
     last_processed_file_id = file_id
@@ -51,8 +48,6 @@ def handle_all_media(message):
         f"@NEW_ANIME_HINDI_DUB_OFFICIALL"
     )
 
-    status_msg = bot.reply_to(message, "Processing and adding caption... ⏳")
-
     try:
         bot.copy_message(
             chat_id=message.chat.id,
@@ -71,13 +66,7 @@ def handle_all_media(message):
             ep += 1
             
     except Exception as e:
-        print(f"Error: {e}")
-        bot.send_message(message.chat.id, "❌ Failed to add caption to this file.")
-
-    try:
-        bot.delete_message(message.chat.id, status_msg.message_id)
-    except:
-        pass
+        print(f"Error handling media: {e}")
 
 @bot.message_handler(commands=['start'])
 def command_start(message):
@@ -85,7 +74,8 @@ def command_start(message):
         q = f"{manual_quality} (MANUAL LOCK)"
     else:
         q = "480p SD" if cycle == 0 else "720p HD" if cycle == 1 else "1080p FHD"
-    bot.reply_to(message, f"👋 **Bot Status:**\n\n🔢 Next Episode: `Episode {ep}`\n🟡 Next Quality: `{q}`", parse_mode="Markdown")
+    status = f"👋 **Bot Status:**\n\n🔢 Next Episode: `Episode {ep}`\n🟡 Next Quality: `{q}`"
+    bot.reply_to(message, status, parse_mode="Markdown")
 
 @bot.message_handler(commands=['setep'])
 def command_setep(message):
@@ -104,19 +94,19 @@ def command_setquality(message):
     
     if "480" in text:
         manual_quality = "480p SD"
-        bot.reply_to(message, "✅ Quality locked to: **480p SD**\n(Auto-rotation disabled)", parse_mode="Markdown")
+        bot.reply_to(message, "✅ Quality locked to: **480p SD**")
     elif "720" in text:
         manual_quality = "720p HD"
-        bot.reply_to(message, "✅ Quality locked to: **720p HD**\n(Auto-rotation disabled)", parse_mode="Markdown")
+        bot.reply_to(message, "✅ Quality locked to: **720p HD**")
     elif "1080" in text:
         manual_quality = "1080p FHD"
-        bot.reply_to(message, "✅ Quality locked to: **1080p FHD**\n(Auto-rotation disabled)", parse_mode="Markdown")
+        bot.reply_to(message, "✅ Quality locked to: **1080p FHD**")
     elif "auto" in text or "reset" in text:
         manual_quality = None
         cycle = 0
-        bot.reply_to(message, "🔄 Back to standard **Auto-Rotation Mode**.")
+        bot.reply_to(message, "🔄 Restored to automatic **Auto-Rotation Mode**.")
     else:
-        bot.reply_to(message, "❌ Provide a specific quality setup!\nExamples: `/setquality 720` or `/setquality auto`")
+        bot.reply_to(message, "❌ Provide a specific quality level!\nExamples:\n• `/setquality 720`\n• `/setquality auto`")
 
 @bot.message_handler(commands=['restart'])
 def command_restart(message):
@@ -125,8 +115,7 @@ def command_restart(message):
     cycle = 0
     manual_quality = None
     last_processed_file_id = ""
-    bot.reply_to(message, "🔄 Bot memory reset completely!")
+    bot.reply_to(message, "🔄 Bot system memory fully reset to Episode 1 auto mode!")
 
-print("🚀 PRODUCTION AUTO-CAPTION ENGINE ACTIVE...")
+print("🚀 PRODUCTION AUTO-CAPTION ENGINE RUNNING VIA GITHUB CONFIG...")
 bot.infinity_polling()
-EOF
