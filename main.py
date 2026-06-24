@@ -52,7 +52,7 @@ def handle_incoming_media(message):
         f"Episode :- {ep}\n"
         f"🗣 Language :- Hindi Dub\n"
         f"🟡 Quality :- {quality}\n"
-        f"@NEW_ANIME_HINDI_DUB_OFFICIALL"
+        f"@NEW\_ANIME\_HINDI\_DUB\_OFFICIALL"
     )
 
     try:
