@@ -4,7 +4,7 @@ import re
 import sys
 
 # Retrieve token from environment variables safely
-BOT_TOKEN = "8938472941:AAHLT6qkmuFrWEdl8q1YeNUWe6rgyln-VtU")
+BOT_TOKEN = ("8938472941:AAHLT6qkmuFrWEdl8q1YeNUWe6rgyln-VtU")
 
 if not BOT_TOKEN:
     print("❌ ERROR: 'BOT_TOKEN' environment variable is missing!")
