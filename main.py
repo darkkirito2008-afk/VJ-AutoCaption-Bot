@@ -22,21 +22,15 @@ bot = telebot.TeleBot(BOT_TOKEN)
 
 ep = 1
 cycle = 0
-last_processed_file_id = ""
 manual_quality = None
 
 @bot.message_handler(content_types=['video', 'document'], func=lambda message: True)
 def handle_incoming_media(message):
-    global ep, cycle, last_processed_file_id, manual_quality
+    global ep, cycle, manual_quality
     
     media = message.video or message.document
     if not media:
         return
-        
-    file_id = media.file_id
-    if file_id == last_processed_file_id:
-        return
-    last_processed_file_id = file_id
 
     # Determine current quality block instantly
     if manual_quality:
@@ -56,16 +50,8 @@ def handle_incoming_media(message):
         f"@NEW\_ANIME\_HINDI\_DUB\_OFFICIALL"
     )
 
-    # CRITICAL FIX: Advance counter tracking variables immediately BEFORE sending the message payload
-    if not manual_quality:
-        cycle += 1
-        if cycle >= 3:
-            cycle = 0
-            ep += 1
-    else:
-        ep += 1
-
     try:
+        # Send the copy with your clean new caption format
         bot.copy_message(
             chat_id=message.chat.id,
             from_chat_id=message.chat.id,
@@ -73,6 +59,15 @@ def handle_incoming_media(message):
             caption=caption_text,
             parse_mode="Markdown"
         )
+        
+        # Advance counters immediately after a successful transmission
+        if not manual_quality:
+            cycle += 1
+            if cycle >= 3:
+                cycle = 0
+                ep += 1
+        else:
+            ep += 1
             
     except Exception as e:
         print(f"Error handling media: {e}")
@@ -119,11 +114,10 @@ def command_setquality(message):
 
 @bot.message_handler(commands=['restart'])
 def command_restart(message):
-    global ep, cycle, last_processed_file_id, manual_quality
+    global ep, cycle, manual_quality
     ep = 1
     cycle = 0
     manual_quality = None
-    last_processed_file_id = ""
     bot.reply_to(message, "🔄 Bot system memory fully reset to Episode 1!")
 
 if __name__ == "__main__":
