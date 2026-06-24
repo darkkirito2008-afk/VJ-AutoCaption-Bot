@@ -23,7 +23,7 @@ if not BOT_TOKEN:
     print("❌ ERROR: 'BOT_TOKEN' environment variable is missing!")
     sys.exit(1)
 
-bot = telebot.TeleBot(8938472941:AAHLT6qkmuFrWEdl8q1YeNUWe6rgyln-VtU)
+bot = telebot.TeleBot(BOT_TOKEN)
 
 ep = 1
 cycle = 0
