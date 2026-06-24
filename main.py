@@ -5,7 +5,7 @@ import sys
 from threading import Thread
 from flask import Flask
 
-# 1. Create the dummy web server for Render's port scanner
+# 1. Dummy web server for Render's port scanner
 app = Flask('')
 
 @app.route('/')
@@ -16,7 +16,7 @@ def run_web_server():
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
-# 2. Main Telegram Bot Logic (Token swapped successfully)
+# 2. Main Telegram Bot Logic
 BOT_TOKEN = "8642173946:AAHGn5rsyH6Ur54SxIgqUe3cF83dqTIsJjY"
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -38,6 +38,7 @@ def handle_incoming_media(message):
         return
     last_processed_file_id = file_id
 
+    # Determine current quality block instantly
     if manual_quality:
         quality = manual_quality
     else:
@@ -55,6 +56,15 @@ def handle_incoming_media(message):
         f"@NEW\_ANIME\_HINDI\_DUB\_OFFICIALL"
     )
 
+    # CRITICAL FIX: Advance counter tracking variables immediately BEFORE sending the message payload
+    if not manual_quality:
+        cycle += 1
+        if cycle >= 3:
+            cycle = 0
+            ep += 1
+    else:
+        ep += 1
+
     try:
         bot.copy_message(
             chat_id=message.chat.id,
@@ -63,14 +73,6 @@ def handle_incoming_media(message):
             caption=caption_text,
             parse_mode="Markdown"
         )
-        
-        if not manual_quality:
-            cycle += 1
-            if cycle >= 3:
-                cycle = 0
-                ep += 1
-        else:
-            ep += 1
             
     except Exception as e:
         print(f"Error handling media: {e}")
