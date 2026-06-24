@@ -3,8 +3,8 @@ import telebot
 import re
 import sys
 
-# Retrieve the hidden token from your hosting environment variables
-BOT_TOKEN = os.getenv("8938472941:AAHLT6qkmuFrWEdl8q1YeNUWe6rgyln-VtU")
+# Retrieve token from environment variables safely
+BOT_TOKEN = os.getenv8938472941:AAHLT6qkmuFrWEdl8q1YeNUWe6rgyln-VtU")
 
 if not BOT_TOKEN:
     print("❌ ERROR: 'BOT_TOKEN' environment variable is missing!")
@@ -106,7 +106,7 @@ def command_setquality(message):
         cycle = 0
         bot.reply_to(message, "🔄 Restored to automatic **Auto-Rotation Mode**.")
     else:
-        bot.reply_to(message, "❌ Provide a specific quality level!\nExamples:\n• `/setquality 720`\n• `/setquality auto`")
+        bot.reply_to(message, "❌ Provide a quality level!\nExamples: `/setquality 720` or `/setquality auto`")
 
 @bot.message_handler(commands=['restart'])
 def command_restart(message):
@@ -115,7 +115,7 @@ def command_restart(message):
     cycle = 0
     manual_quality = None
     last_processed_file_id = ""
-    bot.reply_to(message, "🔄 Bot system memory fully reset to Episode 1 auto mode!")
+    bot.reply_to(message, "🔄 Bot system memory fully reset to Episode 1!")
 
-print("🚀 PRODUCTION AUTO-CAPTION ENGINE RUNNING VIA GITHUB CONFIG...")
+print("🚀 CAPTION BOT ENGINE RUNNING ONLINE...")
 bot.infinity_polling()
