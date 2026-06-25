@@ -20,25 +20,27 @@ def run_web_server():
 BOT_TOKEN = "8553087059:AAH88LMKUIv4UuDduE1dv_BCFHb2C-Gtwug"
 bot = telebot.TeleBot(BOT_TOKEN)
 
-ep = 1
-cycle = 0
+# Global trackers
+video_counter = 0  # Total videos processed overall
+ep = 1             # Episode tracker
 manual_quality = None
 
 @bot.message_handler(content_types=['video', 'document'], func=lambda message: True)
 def handle_incoming_media(message):
-    global ep, cycle, manual_quality
+    global video_counter, ep, manual_quality
     
     media = message.video or message.document
     if not media:
         return
 
-    # Determine current quality block instantly
+    # Calculate exact quality loop stage
     if manual_quality:
         quality = manual_quality
     else:
-        if cycle == 0:
+        remainder = video_counter % 3
+        if remainder == 0:
             quality = "480p SD"
-        elif cycle == 1:
+        elif remainder == 1:
             quality = "720p HD"
         else:
             quality = "1080p FHD"
@@ -51,7 +53,7 @@ def handle_incoming_media(message):
     )
 
     try:
-        # Send the copy with your clean new caption format
+        # Deliver the copied file with formatting intact
         bot.copy_message(
             chat_id=message.chat.id,
             from_chat_id=message.chat.id,
@@ -60,11 +62,11 @@ def handle_incoming_media(message):
             parse_mode="Markdown"
         )
         
-        # Advance counters immediately after a successful transmission
+        # Safe structural state updates
         if not manual_quality:
-            cycle += 1
-            if cycle >= 3:
-                cycle = 0
+            video_counter += 1
+            # Every 3 videos completed means one full episode set is done
+            if video_counter % 3 == 0:
                 ep += 1
         else:
             ep += 1
@@ -77,7 +79,8 @@ def command_start(message):
     if manual_quality:
         q = f"{manual_quality} (MANUAL LOCK)"
     else:
-        q = "480p SD" if cycle == 0 else "720p HD" if cycle == 1 else "1080p FHD"
+        remainder = video_counter % 3
+        q = "480p SD" if remainder == 0 else "720p HD" if remainder == 1 else "1080p FHD"
     status = f"👋 **Bot Status:**\n\n🔢 Next Episode: `Episode {ep}`\n🟡 Next Quality: `{q}`"
     bot.reply_to(message, status, parse_mode="Markdown")
 
@@ -93,7 +96,7 @@ def command_setep(message):
 
 @bot.message_handler(commands=['setquality'])
 def command_setquality(message):
-    global manual_quality, cycle
+    global manual_quality, video_counter
     text = message.text.lower()
     
     if "480" in text:
@@ -107,18 +110,18 @@ def command_setquality(message):
         bot.reply_to(message, "✅ Quality locked to: **1080p FHD**")
     elif "auto" in text or "reset" in text:
         manual_quality = None
-        cycle = 0
-        bot.reply_to(message, "🔄 Restored to automatic **Auto-Rotation Mode**.")
+        video_counter = 0
+        bot.reply_to(message, "🔄 Restored to automatic **Auto-Rotation Mode** starting at 480p.")
     else:
         bot.reply_to(message, "❌ Provide a quality level!\nExamples: `/setquality 720` or `/setquality auto`")
 
 @bot.message_handler(commands=['restart'])
 def command_restart(message):
-    global ep, cycle, manual_quality
+    global ep, video_counter, manual_quality
     ep = 1
-    cycle = 0
+    video_counter = 0
     manual_quality = None
-    bot.reply_to(message, "🔄 Bot system memory fully reset to Episode 1!")
+    bot.reply_to(message, "🔄 Bot system memory fully reset to Episode 1 & 480p SD!")
 
 if __name__ == "__main__":
     server_thread = Thread(target=run_web_server)
