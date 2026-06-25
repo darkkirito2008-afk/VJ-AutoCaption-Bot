@@ -80,7 +80,7 @@ def command_start(message):
         q = f"{manual_quality} (MANUAL LOCK)"
     else:
         remainder = video_counter % 3
-        q = "480p SD" if remainder == 0 else "720p HD" if remainder == 1 else "1080p FHD"
+        q = "480p [SD]" if remainder == 0 else "720p [HD]" if remainder == 1 else "1080p [FHD]"
     status = f"👋 **Bot Status:**\n\n🔢 Next Episode: `Episode {ep}`\n🟡 Next Quality: `{q}`"
     bot.reply_to(message, status, parse_mode="Markdown")
 
@@ -100,14 +100,14 @@ def command_setquality(message):
     text = message.text.lower()
     
     if "480" in text:
-        manual_quality = "480p SD"
-        bot.reply_to(message, "✅ Quality locked to: **480p SD**")
+        manual_quality = "[480p SD]"
+        bot.reply_to(message, "✅ Quality locked to: **480p [SD]**")
     elif "720" in text:
-        manual_quality = "720p HD"
-        bot.reply_to(message, "✅ Quality locked to: **720p HD**")
+        manual_quality = "[720p HD]"
+        bot.reply_to(message, "✅ Quality locked to: **720p [HD]**")
     elif "1080" in text:
-        manual_quality = "1080p FHD"
-        bot.reply_to(message, "✅ Quality locked to: **1080p FHD**")
+        manual_quality = "[1080p FHD]"
+        bot.reply_to(message, "✅ Quality locked to: **1080p [FHD]**")
     elif "auto" in text or "reset" in text:
         manual_quality = None
         video_counter = 0
@@ -121,7 +121,7 @@ def command_restart(message):
     ep = 1
     video_counter = 0
     manual_quality = None
-    bot.reply_to(message, "🔄 Bot system memory fully reset to Episode 1 & 480p SD!")
+    bot.reply_to(message, "🔄 Bot system memory fully reset to Episode 1 & 480p [SD]")
 
 if __name__ == "__main__":
     server_thread = Thread(target=run_web_server)
