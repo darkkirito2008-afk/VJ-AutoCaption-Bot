@@ -34,17 +34,17 @@ def handle_incoming_media(message):
     if not media:
         return
 
-    # Calculate exact quality loop stage with square brackets added
+    # Calculate exact quality loop stage with escaped markdown brackets
     if manual_quality:
         quality = manual_quality
     else:
         remainder = video_counter % 3
         if remainder == 0:
-            quality = "480p [SD]"
+            quality = "480p \[SD\]"
         elif remainder == 1:
-            quality = "720p [HD]"
+            quality = "720p \[HD\]"
         else:
-            quality = "1080p [FHD]"
+            quality = "1080p \[FHD\]"
 
     caption_text = (
         f"Episode :- {ep}\n"
@@ -81,7 +81,7 @@ def command_start(message):
         q = f"{manual_quality} (MANUAL LOCK)"
     else:
         remainder = video_counter % 3
-        q = "480p [SD]" if remainder == 0 else "720p [HD]" if remainder == 1 else "1080p [FHD]"
+        q = "480p \[SD\]" if remainder == 0 else "720p \[HD\]" if remainder == 1 else "1080p \[FHD\]"
     status = f"👋 **Bot Status:**\n\n🔢 Next Episode: `Episode {ep}`\n🟡 Next Quality: `{q}`"
     bot.reply_to(message, status, parse_mode="Markdown")
 
@@ -101,13 +101,13 @@ def command_setquality(message):
     text = message.text.lower()
     
     if "480" in text:
-        manual_quality = "480p [SD]"
+        manual_quality = "480p \[SD\]"
         bot.reply_to(message, "✅ Quality locked to: **480p [SD]**")
     elif "720" in text:
-        manual_quality = "720p [HD]"
+        manual_quality = "720p \[HD\]"
         bot.reply_to(message, "✅ Quality locked to: **720p [HD]**")
     elif "1080" in text:
-        manual_quality = "1080p [FHD]"
+        manual_quality = "1080p \[FHD\]"
         bot.reply_to(message, "✅ Quality locked to: **1080p [FHD]**")
     elif "auto" in text or "reset" in text:
         manual_quality = None
