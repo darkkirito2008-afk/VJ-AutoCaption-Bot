@@ -34,33 +34,33 @@ def handle_incoming_media(message):
     if not media:
         return
 
-    # Calculate exact quality loop stage with escaped markdown brackets
+    # Using clean text without backslashes for HTML mode
     if manual_quality:
         quality = manual_quality
     else:
         remainder = video_counter % 3
         if remainder == 0:
-            quality = "480p \[SD\]"
+            quality = "480p [SD]"
         elif remainder == 1:
-            quality = "720p \[HD\]"
+            quality = "720p [HD]"
         else:
-            quality = "1080p \[FHD\]"
+            quality = "1080p [FHD]"
 
     caption_text = (
         f"Episode :- {ep}\n"
         f"🗣 Language :- Hindi Dub\n"
         f"🟡 Quality :- {quality}\n"
-        f"@NEW\_ANIME\_HINDI\_DUB\_OFFICIALL"
+        f"@NEW_ANIME_HINDI_DUB_OFFICIALL"
     )
 
     try:
-        # Deliver the copied file with formatting intact
+        # Switched parse_mode to HTML to perfectly keep brackets and underscores
         bot.copy_message(
             chat_id=message.chat.id,
             from_chat_id=message.chat.id,
             message_id=message.message_id,
             caption=caption_text,
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
         
         # Safe structural state updates
@@ -81,9 +81,11 @@ def command_start(message):
         q = f"{manual_quality} (MANUAL LOCK)"
     else:
         remainder = video_counter % 3
-        q = "480p \[SD\]" if remainder == 0 else "720p \[HD\]" if remainder == 1 else "1080p \[FHD\]"
-    status = f"👋 **Bot Status:**\n\n🔢 Next Episode: `Episode {ep}`\n🟡 Next Quality: `{q}`"
-    bot.reply_to(message, status, parse_mode="Markdown")
+        q = "480p [SD]" if remainder == 0 else "720p [HD]" if remainder == 1 else "1080p [FHD]"
+    
+    # HTML formatting for bold tags <b> instead of **
+    status = f"👋 <b>Bot Status:</b>\n\n🔢 Next Episode: <code>Episode {ep}</code>\n🟡 Next Quality: <code>{q}</code>"
+    bot.reply_to(message, status, parse_mode="HTML")
 
 @bot.message_handler(commands=['setep'])
 def command_setep(message):
@@ -101,20 +103,20 @@ def command_setquality(message):
     text = message.text.lower()
     
     if "480" in text:
-        manual_quality = "480p \[SD\]"
-        bot.reply_to(message, "✅ Quality locked to: **480p [SD]**")
+        manual_quality = "480p [SD]"
+        bot.reply_to(message, "✅ Quality locked to: <b>480p [SD]</b>", parse_mode="HTML")
     elif "720" in text:
-        manual_quality = "720p \[HD\]"
-        bot.reply_to(message, "✅ Quality locked to: **720p [HD]**")
+        manual_quality = "720p [HD]"
+        bot.reply_to(message, "✅ Quality locked to: <b>720p [HD]</b>", parse_mode="HTML")
     elif "1080" in text:
-        manual_quality = "1080p \[FHD\]"
-        bot.reply_to(message, "✅ Quality locked to: **1080p [FHD]**")
+        manual_quality = "1080p [FHD]"
+        bot.reply_to(message, "✅ Quality locked to: <b>1080p [FHD]</b>", parse_mode="HTML")
     elif "auto" in text or "reset" in text:
         manual_quality = None
         video_counter = 0
-        bot.reply_to(message, "🔄 Restored to automatic **Auto-Rotation Mode** starting at 480p.")
+        bot.reply_to(message, "🔄 Restored to automatic <b>Auto-Rotation Mode</b> starting at 480p.", parse_mode="HTML")
     else:
-        bot.reply_to(message, "❌ Provide a quality level!\nExamples: `/setquality 720` or `/setquality auto`")
+        bot.reply_to(message, "❌ Provide a quality level!\nExamples: <code>/setquality 720</code> or <code>/setquality auto</code>", parse_mode="HTML")
 
 @bot.message_handler(commands=['restart'])
 def command_restart(message):
