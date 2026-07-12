@@ -1,135 +1,79 @@
 import os
 import telebot
-import re
-import sys
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from threading import Thread
 from flask import Flask
 
-# 1. Dummy web server for Render's port scanner
+# --- Web Server ---
 app = Flask('')
-
 @app.route('/')
-def home():
-    return "Bot is alive and running!"
+def home(): return "Bot is alive!"
+def run_web_server(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 
-def run_web_server():
-    # Force dynamic port binding for Render's requirements
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
-
-# 2. Main Telegram Bot Logic
-BOT_TOKEN = "8553087059:AAH88LMKUIv4UuDduE1dv_BCFHb2C-Gtwug"
+# --- Bot Setup ---
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Global trackers
-video_counter = 0  # Total videos processed overall
-ep = 1             # Episode tracker
+# State
+video_counter = 0
+ep = 1
 manual_quality = None
+is_batch_mode = False
 
-@bot.message_handler(content_types=['video', 'document'], func=lambda message: True)
-def handle_incoming_media(message):
-    global video_counter, ep, manual_quality
-    
-    media = message.video or message.document
-    if not media:
-        return
-
-    # Using clean text without backslashes for HTML mode
-    if manual_quality:
-        quality = manual_quality
-    else:
-        remainder = video_counter % 3
-        if remainder == 0:
-            quality = "480p [SD]"
-        elif remainder == 1:
-            quality = "720p [HD]"
-        else:
-            quality = "1080p [FHD]"
-
-    caption_text = (
-        f"Episode :- {ep}\n"
-        f"🗣 Language :- Hindi Dub\n"
-        f"🟡 Quality :- {quality}\n"
-        f"@NEW_ANIME_HINDI_DUB_OFFICIALL"
+def get_controls(include_cancel=False):
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("🏠 Menu", callback_data="nav_start"),
+        InlineKeyboardButton("⚙️ Quality", callback_data="nav_quality")
     )
+    if include_cancel:
+        markup.add(InlineKeyboardButton("❌ Cancel Batch", callback_data="nav_cancel"))
+    return markup
+
+@bot.message_handler(commands=['batch'])
+def toggle_batch(message):
+    global is_batch_mode
+    is_batch_mode = not is_batch_mode
+    status = "ON" if is_batch_mode else "OFF"
+    bot.reply_to(message, f"📦 Batch Mode is now **{status}**", parse_mode="Markdown")
+
+@bot.message_handler(content_types=['video', 'document'])
+def handle_media(message):
+    global video_counter, ep, manual_quality
+    media = message.video or message.document
+    if not media: return
+
+    quality = manual_quality if manual_quality else ["480p [SD]", "720p [HD]", "1080p [FHD]"][video_counter % 3]
+    
+    caption = (f"Episode :- {ep}\n🗣 Language :- Hindi Dub\n🟡 Quality :- {quality}\n@NEW_ANIME_HINDI_DUB_OFFICIALL")
 
     try:
-        # Switched parse_mode to HTML to perfectly keep brackets and underscores
-        bot.copy_message(
-            chat_id=message.chat.id,
-            from_chat_id=message.chat.id,
-            message_id=message.message_id,
-            caption=caption_text,
-            parse_mode="HTML"
-        )
+        bot.copy_message(message.chat.id, message.chat.id, message.message_id, 
+                         caption=caption, parse_mode="HTML", reply_markup=get_controls(include_cancel=True))
         
-        # Safe structural state updates
         if not manual_quality:
             video_counter += 1
-            # Every 3 videos completed means one full episode set is done
-            if video_counter % 3 == 0:
-                ep += 1
+            if video_counter % 3 == 0: ep += 1
         else:
             ep += 1
-            
     except Exception as e:
-        print(f"Error handling media: {e}")
+        bot.reply_to(message, f"❌ Error: {e}")
 
-@bot.message_handler(commands=['start'])
-def command_start(message):
-    if manual_quality:
-        q = f"{manual_quality} (MANUAL LOCK)"
-    else:
-        remainder = video_counter % 3
-        q = "480p [SD]" if remainder == 0 else "720p [HD]" if remainder == 1 else "1080p [FHD]"
+@bot.callback_query_handler(func=lambda call: call.data.startswith("nav_"))
+def callback_handler(call):
+    global video_counter, ep, manual_quality, is_batch_mode
     
-    # HTML formatting for bold tags <b> instead of **
-    status = f"👋 <b>Bot Status:</b>\n\n🔢 Next Episode: <code>Episode {ep}</code>\n🟡 Next Quality: <code>{q}</code>"
-    bot.reply_to(message, status, parse_mode="HTML")
-
-@bot.message_handler(commands=['setep'])
-def command_setep(message):
-    global ep
-    match = re.search(r'\d+', message.text)
-    if match:
-        ep = int(match.group())
-        bot.reply_to(message, f"✅ Next episode target set manually to: Episode {ep}")
-    else:
-        bot.reply_to(message, "❌ Use format: /setep 15")
-
-@bot.message_handler(commands=['setquality'])
-def command_setquality(message):
-    global manual_quality, video_counter
-    text = message.text.lower()
+    if call.data == "nav_cancel":
+        video_counter, ep, manual_quality, is_batch_mode = 0, 1, None, False
+        bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, 
+                                 caption="🚫 Batch cancelled and settings reset.", reply_markup=None)
     
-    if "480" in text:
-        manual_quality = "480p [SD]"
-        bot.reply_to(message, "✅ Quality locked to: <b>480p [SD]</b>", parse_mode="HTML")
-    elif "720" in text:
-        manual_quality = "720p [HD]"
-        bot.reply_to(message, "✅ Quality locked to: <b>720p [HD]</b>", parse_mode="HTML")
-    elif "1080" in text:
-        manual_quality = "1080p [FHD]"
-        bot.reply_to(message, "✅ Quality locked to: <b>1080p [FHD]</b>", parse_mode="HTML")
-    elif "auto" in text or "reset" in text:
-        manual_quality = None
-        video_counter = 0
-        bot.reply_to(message, "🔄 Restored to automatic <b>Auto-Rotation Mode</b> starting at 480p.", parse_mode="HTML")
-    else:
-        bot.reply_to(message, "❌ Provide a quality level!\nExamples: <code>/setquality 720</code> or <code>/setquality auto</code>", parse_mode="HTML")
-
-@bot.message_handler(commands=['restart'])
-def command_restart(message):
-    global ep, video_counter, manual_quality
-    ep = 1
-    video_counter = 0
-    manual_quality = None
-    bot.reply_to(message, "🔄 Bot system memory fully reset to Episode 1 & 480p [SD]!")
+    elif call.data == "nav_start":
+        bot.answer_callback_query(call.id, f"Current Ep: {ep} | Quality: {manual_quality or 'Auto'}")
+    
+    elif call.data == "nav_quality":
+        bot.answer_callback_query(call.id, "Use /setquality to change.")
 
 if __name__ == "__main__":
-    server_thread = Thread(target=run_web_server)
-    server_thread.daemon = True
-    server_thread.start()
-    
-    print("🚀 CAPTION BOT ENGINE ACTIVE & WEB PORT OPEN...")
-    bot.infinity_polling()
+    Thread(target=run_web_server, daemon=True).start()
+    bot.infinity_polling(skip_pending=True)
