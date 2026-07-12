@@ -10,9 +10,10 @@ app = Flask('')
 def home(): return "Bot is alive!"
 def run_web_server(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 
-# --- Bot Setup ---
-BOT_TOKEN = os.environ.get("8553087059:AAGz2KCiaOiQJH6zncWRpv2cBgK1Xwi_fvQ")
+# Replace 'YOUR_ACTUAL_TOKEN_HERE' with your real token from BotFather
+BOT_TOKEN = "8553087059:AAGz2KCiaOiQJH6zncWRpv2cBgK1Xwi_fvQ" 
 bot = telebot.TeleBot(BOT_TOKEN)
+
 
 # State
 video_counter = 0
