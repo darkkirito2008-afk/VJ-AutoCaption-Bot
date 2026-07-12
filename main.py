@@ -11,7 +11,7 @@ def home(): return "Bot is alive!"
 def run_web_server(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 
 # --- Bot Setup ---
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = os.environ.get("8553087059:AAGz2KCiaOiQJH6zncWRpv2cBgK1Xwi_fvQ")
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # State
