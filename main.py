@@ -11,7 +11,7 @@ def home(): return "Bot is alive!"
 def run_web_server(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 
 # Replace 'YOUR_ACTUAL_TOKEN_HERE' with your real token from BotFather
-BOT_TOKEN = "8553087059:AAEIPuXa0rURxnXLven3-WdZ3zpIB6fJGl0" 
+BOT_TOKEN = "8553087059:AAGesMcoHFcjf0-o5o9VGH213gP_Y3rfkVU" 
 bot = telebot.TeleBot(BOT_TOKEN)
 
 
