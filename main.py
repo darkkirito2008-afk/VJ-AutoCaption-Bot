@@ -36,16 +36,7 @@ def get_controls(include_cancel=False):
 
 @bot.message_handler(commands=['start', 'help'])
 def start_help(message):
-    text = (
-        "👋 **Anime Uploader Bot**\n\n"
-        "Commands:\n"
-        "/batch - Toggle batch mode\n"
-        "/setquality - Choose quality\n"
-        "/setepisode - Set episode number\n"
-        "/status - Show status\n"
-        "/reset or /restart - Reset everything"
-    )
-    bot.reply_to(message, text, parse_mode="Markdown")
+    bot.reply_to(message, "👋 Bot is ready!\nUse /help to see commands.", parse_mode="Markdown")
 
 @bot.message_handler(commands=['batch'])
 def toggle_batch(message):
@@ -56,10 +47,9 @@ def toggle_batch(message):
 @bot.message_handler(commands=['setquality'])
 def set_quality(message):
     markup = InlineKeyboardMarkup(row_width=2)
-    qualities = ["480p [SD]", "720p [HD]", "1080p [FHD]", "1440p [QHD]", "2160p [4K]"]
-    for q in qualities:
+    for q in ["480p [SD]", "720p [HD]", "1080p [FHD]", "1440p [QHD]", "2160p [4K]"]:
         markup.add(InlineKeyboardButton(q, callback_data=f"quality_{q}"))
-    bot.reply_to(message, "🎥 Select Quality:", reply_markup=markup)
+    bot.reply_to(message, "Select Quality:", reply_markup=markup)
 
 @bot.message_handler(commands=['setepisode'])
 def set_episode(message):
@@ -70,27 +60,27 @@ def process_episode(message):
     global ep
     try:
         ep = int(message.text.strip())
-        bot.reply_to(message, f"✅ Episode number saved as **{ep}**", parse_mode="Markdown")
+        bot.reply_to(message, f"✅ Episode saved as **{ep}**", parse_mode="Markdown")
     except:
-        bot.reply_to(message, "❌ Please send a valid number.")
+        bot.reply_to(message, "❌ Invalid number!")
 
 @bot.message_handler(commands=['status'])
 def status(message):
-    quality = manual_quality or "Auto"
-    bot.reply_to(message, f"**Status**\n📌 Episode: {ep}\n🎥 Quality: {quality}\n📦 Batch: {'ON' if is_batch_mode else 'OFF'}", parse_mode="Markdown")
+    global ep, manual_quality, is_batch_mode
+    bot.reply_to(message, f"**Status**\nEpisode: {ep}\nQuality: {manual_quality or 'Auto'}\nBatch: {'ON' if is_batch_mode else 'OFF'}", parse_mode="Markdown")
 
 @bot.message_handler(commands=['reset', 'restart'])
-def reset(message):
+def reset_bot(message):
     global video_counter, ep, manual_quality, is_batch_mode
     video_counter = 0
     ep = 1
     manual_quality = None
     is_batch_mode = False
-    bot.reply_to(message, "🔄 Everything has been reset! Episode is now 1.")
+    bot.reply_to(message, "🔄 Reset complete! Episode is now **1**.")
 
 def upload_media(message, quality):
-    global video_counter, ep, manual_quality
-    status_msg = bot.reply_to(message, "⬆️ Uploading... Please wait.")
+    global ep, manual_quality, video_counter
+    status_msg = bot.reply_to(message, "⬆️ Uploading...")
 
     caption = f"Episode :- {ep}\n🗣 Language :- Hindi Dub\n🟡 Quality :- {quality}\n@NEW_ANIME_HINDI_DUB_OFFICIALL"
 
@@ -102,6 +92,7 @@ def upload_media(message, quality):
             bot.send_document(message.chat.id, message.document.file_id, caption=caption, parse_mode="HTML",
                               reply_markup=get_controls(include_cancel=is_batch_mode))
 
+        # Update state
         if not manual_quality:
             video_counter += 1
             if video_counter % 3 == 0:
@@ -109,7 +100,8 @@ def upload_media(message, quality):
         else:
             ep += 1
 
-        bot.edit_message_text("✅ Upload Complete!", message.chat.id, status_msg.message_id)
+        bot.edit_message_text("✅ Done!", message.chat.id, status_msg.message_id)
+
     except Exception as e:
         bot.edit_message_text(f"❌ Error: {str(e)}", message.chat.id, status_msg.message_id)
 
@@ -121,32 +113,19 @@ def handle_media(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
-    global manual_quality, video_counter, ep, is_batch_mode
-
+    global manual_quality, ep
     if call.data.startswith("quality_"):
         manual_quality = call.data.replace("quality_", "")
-        bot.answer_callback_query(call.id, f"✅ Quality: {manual_quality}")
+        bot.answer_callback_query(call.id, f"Quality set to {manual_quality}")
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
-
-    elif call.data == "nav_cancel":
-        video_counter = 0
-        ep = 1
-        manual_quality = None
-        is_batch_mode = False
-        bot.edit_message_caption(call.message.chat.id, call.message.message_id, 
-                                 caption="🚫 Batch cancelled and reset.", reply_markup=None)
 
 if __name__ == "__main__":
     Thread(target=run_web_server, daemon=True).start()
-    
     bot.remove_webhook()
     time.sleep(1)
-    
     webhook_url = os.environ.get("WEBHOOK_URL")
     if webhook_url:
         bot.set_webhook(url=webhook_url)
-        print("✅ Webhook set")
-    
-    print("🤖 Bot running...")
+    print("Bot Started!")
     while True:
         time.sleep(10)
