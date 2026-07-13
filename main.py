@@ -11,7 +11,11 @@ app = Flask(__name__)
 def home():
     return "✅ Bot is alive!"
 
-# Bot Token (Best to set as Environment Variable on Render)
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+
+# Bot Token
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8532183235:AAFLyKGjrBdqx4lmaBNe9azT4l_93AJi6R0")
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -188,12 +192,12 @@ def webhook():
 if __name__ == "__main__":
     Thread(target=run_web_server, daemon=True).start()
     
-    # Remove old webhook and set new one
+    # Set Webhook
     bot.remove_webhook()
     webhook_url = os.environ.get("WEBHOOK_URL")
     if webhook_url:
         bot.set_webhook(url=webhook_url)
-        print(f"✅ Webhook set: {webhook_url}")
+        print(f"✅ Webhook set successfully!")
     else:
-        print("⚠️ WEBHOOK_URL environment variable not set. Using polling.")
+        print("⚠️ No WEBHOOK_URL found. Falling back to polling.")
         bot.infinity_polling(skip_pending=True)
