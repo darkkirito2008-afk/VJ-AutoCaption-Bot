@@ -36,19 +36,10 @@ def get_controls(include_cancel=False):
         markup.add(InlineKeyboardButton("❌ Cancel Batch", callback_data="nav_cancel"))
     return markup
 
-def progress_bar(current, total):
-    percent = (current / total * 100) if total else 0
-    bar_length = 15
-    filled = int(bar_length * current // total) if total else 0
-    bar = '█' * filled + '░' * (bar_length - filled)
-    return f"[{bar}] {percent:.1f}%"
-
-# ==================== COMMANDS ====================
-
 @bot.message_handler(commands=['start', 'help'])
 def start_help(message):
     text = (
-        "👋 **Anime Uploader Bot** is running!\n\n"
+        "👋 **Anime Uploader Bot**\n\n"
         "Commands:\n"
         "/batch - Toggle batch mode\n"
         "/setquality - Choose quality\n"
@@ -107,32 +98,32 @@ def reset(message):
 
 # ==================== MEDIA HANDLING ====================
 
-def upload_with_progress(message, quality):
+def upload_media(message, quality):
     global video_counter, ep, manual_quality
 
-    msg = bot.reply_to(message, "⬆️ Starting upload... 0%")
-
-    def progress(current, total):
-        if total == 0: return
-        try:
-            bar = progress_bar(current, total)
-            bot.edit_message_text(
-                f"⬆️ Uploading...\n{bar}\n{current//(1024*1024)}MB / {total//(1024*1024)}MB",
-                message.chat.id, msg.message_id
-            )
-        except:
-            pass
+    status_msg = bot.reply_to(message, "⬆️ Uploading... Please wait.")
 
     caption = f"Episode :- {ep}\n🗣 Language :- Hindi Dub\n🟡 Quality :- {quality}\n@NEW_ANIME_HINDI_DUB_OFFICIALL"
 
     try:
         if message.video:
-            bot.send_video(message.chat.id, message.video.file_id, caption=caption, parse_mode="HTML",
-                           reply_markup=get_controls(include_cancel=is_batch_mode), progress_hook=progress)
+            bot.send_video(
+                message.chat.id,
+                message.video.file_id,
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=get_controls(include_cancel=is_batch_mode)
+            )
         else:
-            bot.send_document(message.chat.id, message.document.file_id, caption=caption, parse_mode="HTML",
-                              reply_markup=get_controls(include_cancel=is_batch_mode), progress_hook=progress)
+            bot.send_document(
+                message.chat.id,
+                message.document.file_id,
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=get_controls(include_cancel=is_batch_mode)
+            )
 
+        # Update counters
         if not manual_quality:
             video_counter += 1
             if video_counter % 3 == 0:
@@ -140,14 +131,16 @@ def upload_with_progress(message, quality):
         else:
             ep += 1
 
+        bot.edit_message_text("✅ Upload Complete!", message.chat.id, status_msg.message_id)
+
     except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
+        bot.edit_message_text(f"❌ Error: {str(e)}", message.chat.id, status_msg.message_id)
 
 @bot.message_handler(content_types=['video', 'document'])
 def handle_media(message):
     global manual_quality
     quality = manual_quality or ["480p [SD]", "720p [HD]", "1080p [FHD]"][video_counter % 3]
-    Thread(target=upload_with_progress, args=(message, quality), daemon=True).start()
+    Thread(target=upload_media, args=(message, quality), daemon=True).start()
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
@@ -193,6 +186,5 @@ if __name__ == "__main__":
 
     print("🤖 Bot is running...")
 
-    # Keep process alive
     while True:
         time.sleep(10)
