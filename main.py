@@ -15,7 +15,7 @@ def run_web_server():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# Bot Token (Recommended to set as environment variable)
+# Bot Token
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8532183235:AAFLyKGjrBdqx4lmaBNe9azT4l_93AJi6R0")
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -104,7 +104,7 @@ def reset(message):
     bot.reply_to(message, "🔄 All settings reset!")
 
 def upload_with_progress(message, quality):
-    global video_counter, ep
+    global video_counter, ep, manual_quality
 
     msg = bot.reply_to(message, "⬆️ Starting upload... 0%")
 
