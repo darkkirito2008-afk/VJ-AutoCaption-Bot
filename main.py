@@ -168,7 +168,7 @@ def callback_handler(call):
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
 
     elif call.data == "nav_cancel":
-        global video_counter, ep, manual_quality, is_batch_mode
+        # No need to repeat global here
         video_counter = 0
         ep = 1
         manual_quality = None
