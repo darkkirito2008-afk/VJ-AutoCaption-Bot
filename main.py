@@ -2,20 +2,16 @@ import os
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from threading import Thread
-from flask import Flask
+from flask import Flask, request
 
-# --- Configuration ---
+# --- Flask App ---
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "✅ Bot is alive!"
 
-def run_web_server():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
-
-# Bot Token
+# Bot Token (Best to set as Environment Variable on Render)
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8532183235:AAFLyKGjrBdqx4lmaBNe9azT4l_93AJi6R0")
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -52,7 +48,7 @@ def start_help(message):
         "/setepisode - Set episode number\n"
         "/status - Show current status\n"
         "/reset - Reset counters\n\n"
-        "Just send videos or documents."
+        "Send videos or documents to process."
     )
     bot.reply_to(message, text, parse_mode="Markdown")
 
@@ -141,7 +137,6 @@ def upload_with_progress(message, quality):
                 progress_hook=progress
             )
 
-        # Update counters
         if not manual_quality:
             video_counter += 1
             if video_counter % 3 == 0:
@@ -168,7 +163,6 @@ def callback_handler(call):
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
 
     elif call.data == "nav_cancel":
-        # No need to repeat global here
         video_counter = 0
         ep = 1
         manual_quality = None
@@ -183,7 +177,23 @@ def callback_handler(call):
     elif call.data == "nav_start":
         bot.answer_callback_query(call.id, f"Ep: {ep} | Quality: {manual_quality or 'Auto'}")
 
+# --- Webhook Route ---
+@app.route('/' + BOT_TOKEN, methods=['POST'])
+def webhook():
+    if request.method == 'POST':
+        update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
+        bot.process_new_updates([update])
+        return 'ok', 200
+
 if __name__ == "__main__":
     Thread(target=run_web_server, daemon=True).start()
-    print("🤖 Bot Started Successfully!")
-    bot.infinity_polling(skip_pending=True)
+    
+    # Remove old webhook and set new one
+    bot.remove_webhook()
+    webhook_url = os.environ.get("WEBHOOK_URL")
+    if webhook_url:
+        bot.set_webhook(url=webhook_url)
+        print(f"✅ Webhook set: {webhook_url}")
+    else:
+        print("⚠️ WEBHOOK_URL environment variable not set. Using polling.")
+        bot.infinity_polling(skip_pending=True)
