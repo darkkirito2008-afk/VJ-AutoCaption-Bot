@@ -3,7 +3,6 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from threading import Thread
 from flask import Flask
-import time
 
 # --- Configuration ---
 app = Flask(__name__)
@@ -16,11 +15,11 @@ def run_web_server():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# Bot Token
+# Bot Token (Recommended to set as environment variable)
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8532183235:AAFLyKGjrBdqx4lmaBNe9azT4l_93AJi6R0")
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# State
+# Global State
 video_counter = 0
 ep = 1
 manual_quality = None
@@ -37,8 +36,7 @@ def get_controls(include_cancel=False):
     return markup
 
 def progress_bar(current, total):
-    """Create progress bar string"""
-    percent = current / total * 100 if total else 0
+    percent = (current / total * 100) if total else 0
     bar_length = 15
     filled = int(bar_length * current // total) if total else 0
     bar = '█' * filled + '░' * (bar_length - filled)
@@ -54,7 +52,7 @@ def start_help(message):
         "/setepisode - Set episode number\n"
         "/status - Show current status\n"
         "/reset - Reset counters\n\n"
-        "Send videos or documents to process them."
+        "Just send videos or documents."
     )
     bot.reply_to(message, text, parse_mode="Markdown")
 
@@ -75,24 +73,41 @@ def set_quality(message):
 @bot.message_handler(commands=['setepisode'])
 def set_episode(message):
     msg = bot.reply_to(message, "📝 Send new episode number:")
-    bot.register_next_step_handler(msg, lambda m: globals().update(ep=int(m.text)) or bot.reply_to(m, f"✅ Episode set to **{ep}**", parse_mode="Markdown"))
+    bot.register_next_step_handler(msg, process_episode)
+
+def process_episode(message):
+    global ep
+    try:
+        ep = int(message.text)
+        bot.reply_to(message, f"✅ Episode set to **{ep}**", parse_mode="Markdown")
+    except:
+        bot.reply_to(message, "❌ Please send a valid number.")
 
 @bot.message_handler(commands=['status'])
 def status(message):
     quality = manual_quality or "Auto"
-    bot.reply_to(message, f"**Status**\nEpisode: {ep}\nQuality: {quality}\nBatch: {'ON' if is_batch_mode else 'OFF'}\nProcessed: {video_counter}", parse_mode="Markdown")
+    bot.reply_to(message,
+        f"**Current Status**\n"
+        f"📌 Episode: {ep}\n"
+        f"🎥 Quality: {quality}\n"
+        f"📦 Batch Mode: {'ON' if is_batch_mode else 'OFF'}\n"
+        f"📊 Processed: {video_counter}",
+        parse_mode="Markdown")
 
 @bot.message_handler(commands=['reset'])
 def reset(message):
     global video_counter, ep, manual_quality, is_batch_mode
-    video_counter, ep, manual_quality, is_batch_mode = 0, 1, None, False
-    bot.reply_to(message, "🔄 Reset complete!")
+    video_counter = 0
+    ep = 1
+    manual_quality = None
+    is_batch_mode = False
+    bot.reply_to(message, "🔄 All settings reset!")
 
-def upload_with_progress(message, file_info, quality):
+def upload_with_progress(message, quality):
     global video_counter, ep
 
-    msg = bot.reply_to(message, "⬆️ Uploading... 0%")
-    
+    msg = bot.reply_to(message, "⬆️ Starting upload... 0%")
+
     def progress(current, total):
         if total == 0: return
         try:
@@ -102,7 +117,7 @@ def upload_with_progress(message, file_info, quality):
                 message.chat.id, msg.message_id
             )
         except:
-            pass  # Ignore edit conflicts
+            pass
 
     caption = f"Episode :- {ep}\n🗣 Language :- Hindi Dub\n🟡 Quality :- {quality}\n@NEW_ANIME_HINDI_DUB_OFFICIALL"
 
@@ -125,7 +140,7 @@ def upload_with_progress(message, file_info, quality):
                 reply_markup=get_controls(include_cancel=is_batch_mode),
                 progress_hook=progress
             )
-        
+
         # Update counters
         if not manual_quality:
             video_counter += 1
@@ -140,33 +155,35 @@ def upload_with_progress(message, file_info, quality):
 @bot.message_handler(content_types=['video', 'document'])
 def handle_media(message):
     global manual_quality
-    media = message.video or message.document
-    if not media: return
-
     quality = manual_quality or ["480p [SD]", "720p [HD]", "1080p [FHD]"][video_counter % 3]
-    
-    # Start upload with progress
-    Thread(target=upload_with_progress, args=(message, media, quality), daemon=True).start()
+    Thread(target=upload_with_progress, args=(message, quality), daemon=True).start()
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     global manual_quality, video_counter, ep, is_batch_mode
 
     if call.data.startswith("quality_"):
-        manual_quality = call.data[8:]
-        bot.answer_callback_query(call.id, f"✅ Quality: {manual_quality}")
+        manual_quality = call.data.replace("quality_", "")
+        bot.answer_callback_query(call.id, f"✅ Quality set: {manual_quality}")
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
 
     elif call.data == "nav_cancel":
         global video_counter, ep, manual_quality, is_batch_mode
-        video_counter, ep, manual_quality, is_batch_mode = 0, 1, None, False
-        bot.edit_message_caption(call.message.chat.id, call.message.message_id,
-                                 caption="🚫 Batch cancelled.", reply_markup=None)
+        video_counter = 0
+        ep = 1
+        manual_quality = None
+        is_batch_mode = False
+        bot.edit_message_caption(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            caption="🚫 Batch cancelled and reset.",
+            reply_markup=None
+        )
 
     elif call.data == "nav_start":
-        bot.answer_callback_query(call.id, f"Ep {ep} | {manual_quality or 'Auto'}")
+        bot.answer_callback_query(call.id, f"Ep: {ep} | Quality: {manual_quality or 'Auto'}")
 
 if __name__ == "__main__":
     Thread(target=run_web_server, daemon=True).start()
-    print("🤖 Bot with Progress Bar Started!")
+    print("🤖 Bot Started Successfully!")
     bot.infinity_polling(skip_pending=True)
