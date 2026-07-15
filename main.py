@@ -457,14 +457,8 @@ def upload_file(message):
 
 
         logger.info(
-            f"Uploaded: Episode {state['episode']} | {quality}"
-        )
-
-
-    except Exception as e:
-
-        logger.exception(e)
-
+    f"CURRENT STATE: Episode={state['episode']} QualityIndex={state['quality_index']} Selected={quality}"
+)
 
         bot.reply_to(
             message,
