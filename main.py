@@ -11,15 +11,29 @@ CHANNEL_USERNAME = "@NEW_ANIME_HINDI_DUB_OFFICIALL"
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-# --- GLOBAL COUNTERS ---
-# These will reset to 1 and 0 if the bot restarts on Render
-current_ep = 1
-quality_index = 0  # 0=480p, 1=720p, 2=1080p
+# --- MEMORY SYSTEM ---
+# This saves your progress so Render restarts don't break the count
+DATA_FILE = "bot_state.txt"
+
+def save_state(ep, q_idx):
+    with open(DATA_FILE, "w") as f:
+        f.write(f"{ep},{q_idx}")
+
+def load_state():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r") as f:
+            data = f.read().split(",")
+            return int(data[0]), int(data[1])
+    return 1, 0  # Default: Episode 1, Quality 480p
+
+# Load state on startup
+current_ep, quality_index = load_state()
 
 # --- WEB SERVER ---
 @app.route('/')
 def home():
-    return f"Bot is Active. Current Ep: {current_ep}, Next Quality Index: {quality_index}"
+    ep, q = load_state()
+    return f"Bot Active. Next: Ep {ep}, Quality Index {q} (0=480, 1=720, 2=1080)"
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
@@ -29,13 +43,13 @@ def run_web():
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "🔥 **Auto Caption Bot with 3-Quality Rotation**\n\n"
-                          "**How it works:**\n"
-                          "1. Send 480p file -> Gets 480p caption\n"
-                          "2. Send 720p file -> Gets 720p caption\n"
-                          "3. Send 1080p file -> Gets 1080p caption\n"
-                          "4. Next file -> Becomes next Episode (480p)\n\n"
-                          "Use `/setep 1` to reset anytime.")
+    bot.reply_to(message, "✅ **Auto-Caption Bot (Fixed Memory Mode)**\n\n"
+                          "**Rotation Cycle:**\n"
+                          "1. 480p [SD]\n"
+                          "2. 720p [HD]\n"
+                          "3. 1080p [FHD]\n"
+                          "*(Then Episode increases)*\n\n"
+                          "Use `/setep 1` to reset everything.")
 
 @bot.message_handler(commands=['setep'])
 def set_ep(message):
@@ -44,9 +58,10 @@ def set_ep(message):
         num = int(message.text.split()[1])
         current_ep = num
         quality_index = 0
-        bot.reply_to(message, f"✅ Restarting from **Episode {current_ep}** (Quality: 480p)")
+        save_state(current_ep, quality_index)
+        bot.reply_to(message, f"✅ Memory Updated: Starting **Episode {current_ep}** at 480p")
     except:
-        bot.reply_to(message, "❌ Use: `/setep 1`")
+        bot.reply_to(message, "❌ Error. Use: `/setep 1`")
 
 # --- MEDIA HANDLER ---
 
@@ -54,7 +69,10 @@ def set_ep(message):
 def handle_media(message):
     global current_ep, quality_index
     
-    # 1. Determine Quality Tag based on Rotation
+    # Reload from file to ensure we are in sync
+    current_ep, quality_index = load_state()
+
+    # 1. Determine Quality Tag
     if quality_index == 0:
         quality_tag = "480p [SD]"
     elif quality_index == 1:
@@ -62,7 +80,7 @@ def handle_media(message):
     else:
         quality_tag = "1080p [FHD]"
 
-    # 2. Build the Caption
+    # 2. Build the Caption (Matches your screenshot exactly)
     caption = (
         f"Episode :- {current_ep}\n"
         f"🗣 Language :- Hindi Dub\n"
@@ -70,33 +88,31 @@ def handle_media(message):
         f"{CHANNEL_USERNAME}"
     )
 
-    # 3. Send the File
+    # 3. Send File
     try:
         if message.video:
             bot.send_video(message.chat.id, message.video.file_id, caption=caption)
         else:
             bot.send_document(message.chat.id, message.document.file_id, caption=caption)
 
-        # 4. Update the Counters
+        # 4. Increment Quality Index
         quality_index += 1
         
-        # After 3 qualities, move to next Episode and back to 480p
+        # 5. Check if Episode is complete (after 3 files)
         if quality_index >= 3:
             current_ep += 1
             quality_index = 0
+        
+        # 6. Save new state to memory
+        save_state(current_ep, quality_index)
             
     except Exception as e:
         print(f"Error: {e}")
 
 # --- STARTUP ---
 if __name__ == "__main__":
-    # Start Web Server
     Thread(target=run_web).start()
-    
-    # Fix Conflict Error
-    print("🚀 Clearing old webhooks...")
     bot.remove_webhook()
     time.sleep(1)
-    
-    print(f"🚀 Bot started! Current Episode: {current_ep}")
+    print("🚀 Bot Started with Memory Protection")
     bot.infinity_polling()
