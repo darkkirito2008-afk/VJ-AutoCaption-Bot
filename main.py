@@ -17,7 +17,7 @@ def webhook():
     bot.process_new_updates([update])
     return 'ok', 200
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8532183235:AAFLyKGjrBdqx4lmaBNe9azT4l_93AJi6R0")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8553087059:AAGesMcoHFcjf0-o5o9VGH213gP_Y3rfkVU")
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # State
