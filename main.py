@@ -16,7 +16,7 @@ app = Flask(__name__)
 
 # Global Variables
 current_ep = 1
-quality_count = 0  
+quality_count = 0  # 0 = 480p, 1 = 720p, 2 = 1080p
 
 # --- WEB SERVER ---
 @app.route('/')
@@ -31,7 +31,13 @@ def run_web():
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "✅ **Bot is Active!**\n\nI will count 3 qualities per episode.\nUse `/setep 1` to start.")
+    bot.reply_to(message, "✅ **Batch Rotation Bot Active!**\n\n"
+                          "**Current Logic:**\n"
+                          "1st file sent = 480p [SD]\n"
+                          "2nd file sent = 720p [HD]\n"
+                          "3rd file sent = 1080p [FHD]\n"
+                          "Then it moves to the next episode automatically.\n\n"
+                          "Use `/setep 1` to reset.")
 
 @bot.message_handler(commands=['setep'])
 def set_ep(message):
@@ -39,22 +45,25 @@ def set_ep(message):
     try:
         num = int(message.text.split()[1])
         current_ep = num
-        quality_count = 0
-        bot.reply_to(message, f"✅ Starting from **Episode {current_ep}**")
+        quality_count = 0  # Reset quality to 480p
+        bot.reply_to(message, f"✅ Restarting from **Episode {current_ep} (480p)**")
     except:
         bot.reply_to(message, "Usage: `/setep 1`")
 
 @bot.message_handler(content_types=['video', 'document'])
 def handle_media(message):
     global current_ep, quality_count
+    
     try:
-        file_info = message.video if message.video else message.document
-        file_name = (file_info.file_name or "video").lower()
+        # --- QUALITY ROTATION LOGIC ---
+        if quality_count == 0:
+            quality = "480p [SD]"
+        elif quality_count == 1:
+            quality = "720p [HD]"
+        else:
+            quality = "1080p [FHD]"
 
-        quality = "480p [SD]"
-        if "1080" in file_name: quality = "1080p [FHD]"
-        elif "720" in file_name: quality = "720p [HD]"
-
+        # Create Caption
         caption = (
             f"Episode :- {current_ep}\n"
             f"🗣 Language :- Hindi Dub\n"
@@ -62,12 +71,16 @@ def handle_media(message):
             f"{CHANNEL_USERNAME}"
         )
 
+        # Send File
         if message.video:
             bot.send_video(message.chat.id, message.video.file_id, caption=caption)
         else:
             bot.send_document(message.chat.id, message.document.file_id, caption=caption)
 
+        # Update Counters
         quality_count += 1
+        
+        # If we reached 3 files, move to next episode and reset quality to 480p
         if quality_count >= 3:
             current_ep += 1
             quality_count = 0
@@ -77,11 +90,10 @@ def handle_media(message):
 
 # --- EXECUTION ---
 if __name__ == "__main__":
-    # Start the web server
     Thread(target=run_web).start()
     
     print("🚀 Removing old webhooks...")
-    bot.remove_webhook() # THIS LINE FIXES THE 409 CONFLICT
+    bot.remove_webhook() 
     
     print("🚀 Bot is starting polling...")
     bot.infinity_polling()
