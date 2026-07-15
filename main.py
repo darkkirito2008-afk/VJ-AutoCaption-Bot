@@ -46,7 +46,7 @@ def run_web():
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "✅ **Auto-Caption Bot is Active!**\n\n"
+    bot.reply_to(message, "ʜᴇʟʟᴏ sᴇɴᴘᴀɪ, ʜᴏᴡ ᴍᴜᴄʜ ᴡɪʟʟ ᴜ ᴇᴅɪᴛ ᴄᴀᴘᴛɪᴏɴ\n\n"
                           "1. 480p [SD]\n"
                           "2. 720p [HD]\n"
                           "3. 1080p [FHD]\n"
