@@ -4,13 +4,11 @@ from flask import Flask
 from threading import Thread
 
 # --- CONFIGURATION ---
-# IMPORTANT: Ensure 'BOT_TOKEN' is added in Render -> Settings -> Environment Variables
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_USERNAME = "@NEW_ANIME_HINDI_DUB_OFFICIALL"
 
-# Simple check to stop if token is missing
 if not BOT_TOKEN:
-    print("❌ BOT_TOKEN is missing in Environment Variables!")
+    print("❌ BOT_TOKEN is missing!")
     exit(1)
 
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -20,10 +18,10 @@ app = Flask(__name__)
 current_ep = 1
 quality_count = 0  
 
-# --- WEB SERVER (To keep Render happy) ---
+# --- WEB SERVER ---
 @app.route('/')
 def home():
-    return "Bot is alive and running!"
+    return "Bot is alive!"
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
@@ -49,17 +47,14 @@ def set_ep(message):
 @bot.message_handler(content_types=['video', 'document'])
 def handle_media(message):
     global current_ep, quality_count
-    
     try:
         file_info = message.video if message.video else message.document
         file_name = (file_info.file_name or "video").lower()
 
-        # 1. Detect Quality
         quality = "480p [SD]"
         if "1080" in file_name: quality = "1080p [FHD]"
         elif "720" in file_name: quality = "720p [HD]"
 
-        # 2. Caption
         caption = (
             f"Episode :- {current_ep}\n"
             f"🗣 Language :- Hindi Dub\n"
@@ -67,13 +62,11 @@ def handle_media(message):
             f"{CHANNEL_USERNAME}"
         )
 
-        # 3. Send
         if message.video:
             bot.send_video(message.chat.id, message.video.file_id, caption=caption)
         else:
             bot.send_document(message.chat.id, message.document.file_id, caption=caption)
 
-        # 4. Count logic (3 files per episode)
         quality_count += 1
         if quality_count >= 3:
             current_ep += 1
@@ -84,10 +77,11 @@ def handle_media(message):
 
 # --- EXECUTION ---
 if __name__ == "__main__":
-    # Start the web server in a thread
-    server_thread = Thread(target=run_web)
-    server_thread.start()
+    # Start the web server
+    Thread(target=run_web).start()
+    
+    print("🚀 Removing old webhooks...")
+    bot.remove_webhook() # THIS LINE FIXES THE 409 CONFLICT
     
     print("🚀 Bot is starting polling...")
-    # This keeps the bot listening to Telegram
-    bot.infinity_polling(timeout=10, long_polling_timeout=5)
+    bot.infinity_polling()
