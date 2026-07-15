@@ -1,537 +1,95 @@
-import os
-import json
-import time
-import logging
-import threading
-from flask import Flask, request
-
 import telebot
-from telebot import types
+import os
+from flask import Flask
+from threading import Thread
 
+# --- CONFIGURATION ---
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+CHANNEL_USERNAME = "@NEW_ANIME_HINDI_DUB_OFFICIALL"
 
-# =========================
-# LOGGING
-# =========================
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s"
-)
-
-logger = logging.getLogger(__name__)
-
-
-# =========================
-# CONFIG
-# =========================
-
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-
-if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN missing in Render Environment")
-
-
-bot = telebot.TeleBot(
-    BOT_TOKEN,
-    parse_mode="HTML"
-)
-
-
-PORT = int(os.environ.get("PORT", 10000))
-
-WEBHOOK_URL = os.environ.get(
-    "WEBHOOK_URL",
-    "https://vj-autocaption-bot-u1il.onrender.com"
-)
-
-
-# =========================
-# FLASK SERVER
-# =========================
-
+bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
+# Global Variables
+current_ep = 1
+quality_count = 0  # Tracks how many files we processed for the current episode
 
-@app.route("/")
-def home():
-    return "Auto Caption Bot Running ✅"
+# --- WEB SERVER ---
+@app.route('/')
+def home(): return "Bot is Running"
 
+def run_web_server():
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
 
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
-def webhook():
+# --- BOT COMMANDS ---
 
-    try:
-        json_data = request.get_json()
-
-        update = types.Update.de_json(json_data)
-
-        bot.process_new_updates([update])
-
-        return "OK", 200
-
-    except Exception as e:
-        logger.error(
-            f"Webhook error: {e}"
-        )
-
-        return "ERROR", 500
-
-
-
-# =========================
-# DATA STORAGE
-# =========================
-
-DATA_FILE = "data.json"
-
-
-def load_data():
-
-    if not os.path.exists(DATA_FILE):
-
-        return {
-            "episode": 1,
-            "qualities": {}
-        }
-
-    with open(DATA_FILE, "r") as f:
-        return json.load(f)
-
-
-
-def save_data(data):
-
-    with open(DATA_FILE, "w") as f:
-        json.dump(
-            data,
-            f,
-            indent=4
-        )
-
-
-data = load_data()
-
-
-
-# =========================
-# START COMMAND
-# =========================
-
-
-@bot.message_handler(commands=["start"])
+@bot.message_handler(commands=['start'])
 def start(message):
+    bot.reply_to(message, "✅ **Multi-Quality Batch Bot Active!**\n\n"
+                          "Logic: 3 files per episode.\n"
+                          "1. Forward 480p, 720p, 1080p of Ep 1\n"
+                          "2. Bot will then automatically move to Ep 2.\n\n"
+                          "Commands:\n"
+                          "/setep 1 - Start from Episode 1\n"
+                          "/skip - Manually move to next episode")
 
-    bot.reply_to(
-        message,
-        """
-<b>🎬 Auto Caption Bot</b>
-
-Bot is online ✅
-
-Commands:
-
-/caption - Set caption
-/status - Check episode
-/restart - Restart counter
-"""
-    )
-
-
-# END PART 1
-# =========================
-# QUALITY SYSTEM
-# =========================
-
-QUALITY_LIST = {
-    "480p": "480p [SD]",
-    "720p": "720p [HD]",
-    "1080p": "1080p [FHD]"
-}
-
-
-def get_quality_buttons():
-
-    markup = types.InlineKeyboardMarkup()
-
-    markup.row(
-        types.InlineKeyboardButton(
-            "480p [SD]",
-            callback_data="quality_480p"
-        ),
-        types.InlineKeyboardButton(
-            "720p [HD]",
-            callback_data="quality_720p"
-        )
-    )
-
-    markup.row(
-        types.InlineKeyboardButton(
-            "1080p [FHD]",
-            callback_data="quality_1080p"
-        )
-    )
-
-    return markup
-
-
-
-# =========================
-# CAPTION GENERATOR
-# =========================
-
-def create_caption(
-    episode,
-    quality
-):
-
-    caption = f"""
-<b>[@Anicore_Animes] MHA : Vigilantes S02 E{episode:02d}</b>
-
-
-Episode :- {episode}
-
-🗣 Language :- Hindi Dub
-🟡 Quality :- {quality}
-
-
-@NEW_ANIME_HINDI_DUB_OFFICIALL
-"""
-
-    return caption
-
-
-
-# =========================
-# STATUS COMMAND
-# =========================
-
-@bot.message_handler(
-    commands=["status"]
-)
-def status(message):
-
-    current_episode = data.get(
-        "episode",
-        1
-    )
-
-    current_quality = data.get(
-        "quality",
-        "480p"
-    )
-
-    bot.reply_to(
-        message,
-        f"""
-<b>Current Settings</b>
-
-Episode : {current_episode}
-
-Quality :
-{QUALITY_LIST.get(current_quality)}
-"""
-    )
-
-
-
-# =========================
-# QUALITY COMMAND
-# =========================
-
-@bot.message_handler(
-    commands=["quality"]
-)
-def quality_menu(message):
-
-    bot.reply_to(
-        message,
-        "Select Quality:",
-        reply_markup=get_quality_buttons()
-    )
-
-
-
-# =========================
-# QUALITY BUTTON HANDLER
-# =========================
-
-@bot.callback_query_handler(
-    func=lambda call:
-    call.data.startswith("quality_")
-)
-def quality_change(call):
-
+@bot.message_handler(commands=['setep'])
+def set_ep(message):
+    global current_ep, quality_count
     try:
+        current_ep = int(message.text.split()[1])
+        quality_count = 0 # Reset counter
+        bot.reply_to(message, f"✅ Restarting from **Episode {current_ep}**")
+    except:
+        bot.reply_to(message, "Usage: `/setep 1`")
 
-        quality = call.data.replace(
-            "quality_",
-            ""
-        )
+@bot.message_handler(commands=['skip'])
+def skip_ep(message):
+    global current_ep, quality_count
+    current_ep += 1
+    quality_count = 0
+    bot.reply_to(message, f"⏭ Skipped! Next files will be **Episode {current_ep}**")
 
-        data["quality"] = quality
+# --- MAIN BATCH PROCESSING ---
 
-        save_data(data)
+@bot.message_handler(content_types=['video', 'document'])
+def handle_batch(message):
+    global current_ep, quality_count
+    
+    file_info = message.video if message.video else message.document
+    file_name = (file_info.file_name or "video").lower()
 
+    # 1. Auto Quality Detection
+    quality = "480p [SD]" # Default
+    if "1080" in file_name:
+        quality = "1080p [FHD]"
+    elif "720" in file_name:
+        quality = "720p [HD]"
+    elif "480" in file_name:
+        quality = "480p [SD]"
 
-        bot.answer_callback_query(
-            call.id,
-            "Quality updated ✅"
-        )
-
-
-        bot.edit_message_text(
-            f"""
-<b>Quality Changed ✅</b>
-
-New Quality:
-{QUALITY_LIST[quality]}
-""",
-            call.message.chat.id,
-            call.message.id
-        )
-
-
-    except Exception as e:
-
-        logger.error(
-            f"Quality error: {e}"
-        )
-
-
-
-# =========================
-# RESTART COMMAND
-# =========================
-
-@bot.message_handler(
-    commands=["restart"]
-)
-def restart(message):
-
-    data["episode"] = 1
-    data["quality"] = "480p"
-
-    save_data(data)
-
-    bot.reply_to(
-        message,
-        """
-♻️ Counter Restarted
-
-Episode : 1
-Quality : 480p [SD]
-"""
+    # 2. Create Caption
+    caption_text = (
+        f"Episode :- {current_ep}\n"
+        f"🗣 Language :- Hindi Dub\n"
+        f"🟡 Quality :- {quality}\n\n"
+        f"{CHANNEL_USERNAME}"
     )
 
-
-
-# =========================
-# NEXT EPISODE COMMAND
-# =========================
-
-@bot.message_handler(
-    commands=["next"]
-)
-def next_episode(message):
-
-    data["episode"] = data.get(
-        "episode",
-        1
-    ) + 1
-
-    save_data(data)
-
-
-    bot.reply_to(
-        message,
-        f"""
-Episode Updated ✅
-
-Current Episode:
-{data["episode"]}
-"""
-    )
-# =========================
-# FILE / VIDEO HANDLER
-# =========================
-
-@bot.message_handler(
-    content_types=[
-        "document",
-        "video"
-    ]
-)
-def handle_file(message):
-
-    try:
-
-        episode = data.get(
-            "episode",
-            1
-        )
-
-        quality_code = data.get(
-            "quality",
-            "480p"
-        )
-
-        quality = QUALITY_LIST.get(
-            quality_code,
-            "480p [SD]"
-        )
-
-
-        caption = create_caption(
-            episode,
-            quality
-        )
-
-
-        # DOCUMENT FILE
-        if message.document:
-
-            bot.send_document(
-                message.chat.id,
-                message.document.file_id,
-                caption=caption
-            )
-
-
-        # VIDEO FILE
-        elif message.video:
-
-            bot.send_video(
-                message.chat.id,
-                message.video.file_id,
-                caption=caption
-            )
-
-
-        # Increase episode after successful upload
-        data["episode"] = episode + 1
-        save_data(data)
-
-
-        logger.info(
-            f"File processed | Episode {episode} | {quality}"
-        )
-
-
-    except Exception as e:
-
-        logger.error(
-            f"File handler error: {e}"
-        )
-
-        bot.reply_to(
-            message,
-            "❌ Error while processing file"
-        )
-
-
-
-# =========================
-# ERROR LOGGER
-# =========================
-
-@bot.message_handler(
-    func=lambda message: True
-)
-def unknown(message):
-
-    logger.info(
-        f"Received message: {message.text}"
-    )
-
-
-
-# =========================
-# TELEGRAM ERROR HANDLER
-# =========================
-
-def telegram_error():
-
-    while True:
-
-        try:
-
-            time.sleep(10)
-
-        except Exception as e:
-
-            logger.error(
-                f"Background error: {e}"
-            )
-
-
-
-# Start background thread
-
-threading.Thread(
-    target=telegram_error,
-    daemon=True
-).start()
-# =========================
-# START BOT
-# =========================
-
-def setup_webhook():
-
-    try:
-
-        logger.info(
-            "Removing old webhook..."
-        )
-
-        bot.remove_webhook()
-
-
-        time.sleep(1)
-
-
-        webhook_url = (
-            f"{WEBHOOK_URL}/{BOT_TOKEN}"
-        )
-
-
-        bot.set_webhook(
-            url=webhook_url
-        )
-
-
-        logger.info(
-            f"Webhook set: {webhook_url}"
-        )
-
-
-    except Exception as e:
-
-        logger.error(
-            f"Webhook setup error: {e}"
-        )
-
-
-
-# =========================
-# RUN APPLICATION
-# =========================
-
+    # 3. Send back
+    if message.video:
+        bot.send_video(message.chat.id, message.video.file_id, caption=caption_text)
+    else:
+        bot.send_document(message.chat.id, message.document.file_id, caption=caption_text)
+
+    # 4. LOGIC: 3 Qualities per Episode
+    quality_count += 1
+    
+    if quality_count >= 3:
+        current_ep += 1     # Increase episode number
+        quality_count = 0   # Reset quality counter for the new episode
+
+# --- START ---
 if __name__ == "__main__":
-
-    logger.info(
-        "Starting Auto Caption Bot..."
-    )
-
-
-    setup_webhook()
-
-
-    logger.info(
-        f"Starting Flask on port {PORT}"
-    )
-
-
-    app.run(
-        host="0.0.0.0",
-        port=PORT
-    )
+    Thread(target=run_web_server).start()
+    bot.infinity_polling()
