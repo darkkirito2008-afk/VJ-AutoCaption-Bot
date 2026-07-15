@@ -2,16 +2,17 @@ import os
 import json
 import time
 import logging
+
 from threading import Thread
 
-from flask import Flask, request
 import telebot
-from telebot.types import Update
+
+from flask import Flask, request
 
 
-# ==================================================
+# ==========================================
 # LOGGING
-# ==================================================
+# ==========================================
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,21 +21,31 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-logger.info("Starting Auto Caption Bot...")
 
-
-# ==================================================
+# ==========================================
 # CONFIG
-# ==================================================
+# ==========================================
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = os.environ.get(
+    "BOT_TOKEN"
+)
+
+WEBHOOK_URL = os.environ.get(
+    "WEBHOOK_URL"
+)
+
+PORT = int(
+    os.environ.get(
+        "PORT",
+        10000
+    )
+)
+
 
 if not BOT_TOKEN:
-    raise Exception("BOT_TOKEN missing in Render Environment")
-
-PORT = int(os.environ.get("PORT", 10000))
-
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+    raise Exception(
+        "BOT_TOKEN not found"
+    )
 
 
 bot = telebot.TeleBot(
@@ -46,9 +57,20 @@ bot = telebot.TeleBot(
 app = Flask(__name__)
 
 
-# ==================================================
-# STATE STORAGE
-# ==================================================
+# ==========================================
+# QUALITY SETTINGS
+# ==========================================
+
+QUALITIES = [
+    "480p [SD]",
+    "720p [HD]",
+    "1080p [FHD]"
+]
+
+
+# ==========================================
+# STATE FILE
+# ==========================================
 
 STATE_FILE = "state.json"
 
@@ -60,73 +82,72 @@ DEFAULT_STATE = {
 }
 
 
-def save_state():
-
-    try:
-        with open(STATE_FILE, "w") as file:
-            json.dump(
-                state,
-                file,
-                indent=4
-            )
-
-    except Exception as e:
-        logger.error(
-            f"State save error: {e}"
-        )
-
 
 def load_state():
 
-    if not os.path.exists(STATE_FILE):
-
-        with open(STATE_FILE, "w") as file:
-            json.dump(
-                DEFAULT_STATE,
-                file,
-                indent=4
-            )
-
-        return DEFAULT_STATE.copy()
-
-
     try:
 
-        with open(STATE_FILE, "r") as file:
-            return json.load(file)
+        if os.path.exists(
+            STATE_FILE
+        ):
+
+            with open(
+                STATE_FILE,
+                "r"
+            ) as f:
+
+                return json.load(f)
+
 
     except Exception as e:
 
-        logger.error(
-            f"State load error: {e}"
+        logger.error(e)
+
+
+    return DEFAULT_STATE.copy()
+
+
+
+def save_state():
+
+    try:
+
+        with open(
+            STATE_FILE,
+            "w"
+        ) as f:
+
+            json.dump(
+                state,
+                f,
+                indent=4
+            )
+
+
+        logger.info(
+            f"Saved state: {state}"
         )
 
-        return DEFAULT_STATE.copy()
+
+    except Exception as e:
+
+        logger.error(e)
 
 
 
 state = load_state()
 
 
-# ==================================================
-# QUALITY LIST
-# ==================================================
 
-QUALITIES = [
-    "480p [SD]",
-    "720p [HD]",
-    "1080p [FHD]"
-]
-
-
-# ==================================================
+# ==========================================
 # FLASK WEBHOOK
-# ==================================================
+# ==========================================
 
 @app.route("/")
 def home():
 
-    return "✅ Auto Caption Bot Alive"
+    return "✅ Auto Caption Bot Running"
+
 
 
 @app.route(
@@ -137,17 +158,22 @@ def webhook():
 
     try:
 
-        json_string = request.get_data().decode(
+        data = request.get_data().decode(
             "utf-8"
         )
 
-        update = Update.de_json(
-            json_string
+
+        update = telebot.types.Update.de_json(
+            data
         )
 
+
         bot.process_new_updates(
-            [update]
+            [
+                update
+            ]
         )
+
 
         return "OK", 200
 
@@ -160,9 +186,9 @@ def webhook():
 
 
 
-# ==================================================
+# ==========================================
 # RUN FLASK
-# ==================================================
+# ==========================================
 
 def run_flask():
 
@@ -170,13 +196,111 @@ def run_flask():
         f"Starting Flask on port {PORT}"
     )
 
+
     app.run(
         host="0.0.0.0",
         port=PORT
     )
-# ==================================================
+# ==========================================
+# START BOT
+# ==========================================
+
+def start_bot():
+
+    logger.info(
+        "Starting Auto Caption Bot..."
+    )
+
+
+    # Remove old webhook
+
+    try:
+
+        bot.remove_webhook()
+
+        logger.info(
+            "Old webhook removed"
+        )
+
+
+    except Exception as e:
+
+        logger.error(
+            f"Webhook remove error: {e}"
+        )
+
+
+    time.sleep(2)
+
+
+
+    # Set new webhook
+
+    if WEBHOOK_URL:
+
+        webhook = (
+            WEBHOOK_URL.rstrip("/")
+            +
+            "/"
+            +
+            BOT_TOKEN
+        )
+
+
+        try:
+
+            bot.set_webhook(
+                url=webhook
+            )
+
+
+            logger.info(
+                f"Webhook set: {webhook}"
+            )
+
+
+        except Exception as e:
+
+            logger.exception(
+                e
+            )
+
+
+    else:
+
+        logger.warning(
+            "WEBHOOK_URL missing"
+        )
+
+
+
+# ==========================================
+# MAIN
+# ==========================================
+
+if __name__ == "__main__":
+
+
+    Thread(
+        target=run_flask,
+        daemon=True
+    ).start()
+
+
+    start_bot()
+
+
+    logger.info(
+        "Bot is running..."
+    )
+
+
+    while True:
+
+        time.sleep(30)
+# ==========================================
 # START COMMAND
-# ==================================================
+# ==========================================
 
 @bot.message_handler(commands=["start"])
 def start(message):
@@ -184,66 +308,63 @@ def start(message):
     bot.reply_to(
         message,
         """
-🤖 <b>Auto Caption Bot</b>
+✅ <b>Auto Caption Bot Ready</b>
 
 Commands:
 
 /setepisode - Change episode number
-/setquality - Select quality
+/setquality - Lock quality
 /autoquality - Enable auto rotation
-/status - Check status
-        """
+/status - Check current status
+/restart - Reload state
+"""
     )
 
 
-# ==================================================
-# STATUS
-# ==================================================
+
+# ==========================================
+# STATUS COMMAND
+# ==========================================
 
 @bot.message_handler(commands=["status"])
 def status(message):
 
-    if state["manual_quality"]:
-
-        quality = state["manual_quality"]
-
-    else:
-
-        quality = (
-            QUALITIES[
-                state["quality_index"]
-            ]
-            + " (Auto)"
-        )
+    current_quality = (
+        state["manual_quality"]
+        if state["manual_quality"]
+        else QUALITIES[state["quality_index"]]
+    )
 
 
     bot.reply_to(
         message,
         f"""
-📺 <b>Status</b>
+📊 <b>Bot Status</b>
 
-Episode : {state["episode"]}
-Quality : {quality}
-        """
+Episode :- {state['episode']}
+🟡 Quality :- {current_quality}
+"""
     )
 
 
-# ==================================================
+
+# ==========================================
 # SET EPISODE
-# ==================================================
+# ==========================================
 
 @bot.message_handler(commands=["setepisode"])
 def set_episode(message):
 
     msg = bot.reply_to(
         message,
-        "Send episode number:"
+        "Send new episode number:"
     )
 
     bot.register_next_step_handler(
         msg,
         save_episode
     )
+
 
 
 def save_episode(message):
@@ -253,8 +374,6 @@ def save_episode(message):
         state["episode"] = int(
             message.text
         )
-
-        state["quality_index"] = 0
 
         save_state()
 
@@ -273,34 +392,32 @@ def save_episode(message):
         )
 
 
-# ==================================================
+
+# ==========================================
 # QUALITY BUTTONS
-# ==================================================
+# ==========================================
+
+from telebot.types import (
+    InlineKeyboardMarkup,
+    InlineKeyboardButton
+)
+
+
 
 @bot.message_handler(commands=["setquality"])
 def set_quality(message):
 
-    markup = InlineKeyboardMarkup(
-        row_width=1
-    )
+    markup = InlineKeyboardMarkup()
 
 
-    for quality in QUALITIES:
+    for q in QUALITIES:
 
         markup.add(
             InlineKeyboardButton(
-                text=quality,
-                callback_data=f"quality_{quality}"
+                q,
+                callback_data=f"quality:{q}"
             )
         )
-
-
-    markup.add(
-        InlineKeyboardButton(
-            "🔄 Auto Quality",
-            callback_data="auto_quality"
-        )
-    )
 
 
     bot.reply_to(
@@ -310,68 +427,39 @@ def set_quality(message):
     )
 
 
-# ==================================================
-# CALLBACK BUTTON HANDLER
-# ==================================================
 
 @bot.callback_query_handler(
-    func=lambda call: True
+    func=lambda call: call.data.startswith("quality:")
 )
-def callback_handler(call):
+def quality_callback(call):
+
+    quality = call.data.split(
+        ":"
+    )[1]
 
 
-    if call.data.startswith(
-        "quality_"
-    ):
+    state["manual_quality"] = quality
 
-        quality = call.data.replace(
-            "quality_",
-            ""
-        )
+    save_state()
 
 
-        state["manual_quality"] = quality
-
-        save_state()
-
-
-        bot.answer_callback_query(
-            call.id,
-            "Quality locked"
-        )
+    bot.answer_callback_query(
+        call.id,
+        "Quality locked"
+    )
 
 
-        bot.edit_message_text(
-            f"✅ Quality set to:\n{quality}",
-            call.message.chat.id,
-            call.message.message_id
-        )
+    bot.edit_message_text(
+        f"✅ Quality set:\n{quality}",
+        call.message.chat.id,
+        call.message.message_id
+    )
 
 
-    elif call.data == "auto_quality":
 
-
-        state["manual_quality"] = None
-
-        save_state()
-
-
-        bot.answer_callback_query(
-            call.id,
-            "Auto rotation enabled"
-        )
-
-
-        bot.edit_message_text(
-            "✅ Auto quality rotation enabled",
-            call.message.chat.id,
-            call.message.message_id
-        )
-
-
-# ==================================================
-# AUTO QUALITY COMMAND
-# ==================================================
+# ==========================================
+# AUTO QUALITY
+# ==========================================
 
 @bot.message_handler(commands=["autoquality"])
 def auto_quality(message):
@@ -383,21 +471,77 @@ def auto_quality(message):
 
     bot.reply_to(
         message,
-        "✅ Auto quality rotation enabled"
+        "🔄 Auto quality rotation enabled"
     )
-# ==================================================
-# UPLOAD FUNCTION
-# ==================================================
 
-def upload_file(message):
+
+
+# ==========================================
+# RESTART COMMAND
+# ==========================================
+
+@bot.message_handler(commands=["restart"])
+def restart_bot(message):
+
+    global state
+
 
     try:
 
-        # Select quality
+        state = load_state()
+
+
+        bot.reply_to(
+            message,
+            "♻️ Bot state refreshed"
+        )
+
+
+        logger.info(
+            "State reloaded"
+        )
+
+
+    except Exception as e:
+
+        logger.exception(e)
+
+
+        bot.reply_to(
+            message,
+            f"❌ Restart error\n{e}"
+        )
+# ==========================================
+# CAPTION GENERATOR
+# ==========================================
+
+def create_caption(quality):
+
+    return f"""
+Episode :- {state['episode']}
+🗣 Language :- Hindi Dub
+🟡 Quality :- {quality}
+@NEW_ANIME_HINDI_DUB_OFFICIALL
+"""
+
+
+# ==========================================
+# UPLOAD FUNCTION
+# ==========================================
+
+def upload_media(message):
+
+    global state
+
+    try:
+
+        # Manual quality selected
         if state["manual_quality"]:
 
             quality = state["manual_quality"]
 
+
+        # Auto rotate quality
         else:
 
             quality = QUALITIES[
@@ -405,60 +549,61 @@ def upload_file(message):
             ]
 
 
-        caption = (
-            f"Episode :- {state['episode']}\n"
-            f"🗣 Language :- Hindi Dub\n"
-            f"🟡 Quality :- {quality}\n"
-            f"@NEW_ANIME_HINDI_DUB_OFFICIALL"
+        caption = create_caption(
+            quality
         )
 
-
-        # Send video
 
         if message.video:
 
             bot.send_video(
-                chat_id=message.chat.id,
-                video=message.video.file_id,
+                message.chat.id,
+                message.video.file_id,
                 caption=caption
             )
 
-
-        # Send document
 
         elif message.document:
 
             bot.send_document(
-                chat_id=message.chat.id,
-                document=message.document.file_id,
+                message.chat.id,
+                message.document.file_id,
                 caption=caption
             )
 
 
-        # Auto rotation
+        logger.info(
+            f"Sent Episode {state['episode']} {quality}"
+        )
 
-        if state["manual_quality"] is None:
 
+        # ==============================
+        # UPDATE AUTO ROTATION
+        # ==============================
+
+        if not state["manual_quality"]:
 
             state["quality_index"] += 1
 
 
-            # After 480 + 720 + 1080
+            # After 3 qualities
             # move to next episode
 
-            if state["quality_index"] >= 3:
+            if state["quality_index"] >= len(QUALITIES):
 
                 state["quality_index"] = 0
 
                 state["episode"] += 1
 
 
-            save_state()
+        save_state()
 
 
-        logger.info(
-    f"CURRENT STATE: Episode={state['episode']} QualityIndex={state['quality_index']} Selected={quality}"
-)
+
+    except Exception as e:
+
+        logger.exception(e)
+
 
         bot.reply_to(
             message,
@@ -467,9 +612,9 @@ def upload_file(message):
 
 
 
-# ==================================================
+# ==========================================
 # MEDIA HANDLER
-# ==================================================
+# ==========================================
 
 @bot.message_handler(
     content_types=[
@@ -480,75 +625,7 @@ def upload_file(message):
 def media_handler(message):
 
     Thread(
-        target=upload_file,
+        target=upload_media,
         args=(message,),
         daemon=True
     ).start()
-
-
-
-# ==================================================
-# RENDER START
-# ==================================================
-
-if __name__ == "__main__":
-
-
-    # Start Flask server
-
-    Thread(
-        target=run_flask,
-        daemon=True
-    ).start()
-
-
-    time.sleep(3)
-
-
-    try:
-
-        logger.info(
-            "Removing old webhook..."
-        )
-
-        bot.remove_webhook()
-
-
-        time.sleep(2)
-
-
-        if WEBHOOK_URL:
-
-            webhook_url = (
-                WEBHOOK_URL.rstrip("/")
-                + "/"
-                + BOT_TOKEN
-            )
-
-
-            logger.info(
-                f"Setting webhook: {webhook_url}"
-            )
-
-
-            bot.set_webhook(
-                url=webhook_url
-            )
-
-
-        logger.info(
-            "✅ Bot Started Successfully"
-        )
-
-
-    except Exception as e:
-
-        logger.exception(e)
-
-
-
-    # Keep Render process alive
-
-    while True:
-
-        time.sleep(30)
