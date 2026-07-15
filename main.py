@@ -278,6 +278,11 @@ def start_bot():
 # MAIN
 # ==========================================
 def media_handler(message):
+    try:
+        process_media(message)
+    except Exception as e:
+        logger.exception(e)
+
 
 if __name__ == "__main__":
 
@@ -288,9 +293,7 @@ if __name__ == "__main__":
 
     start_bot()
 
-    logger.info(
-        "Bot is running..."
-    )
+    logger.info("Bot is running")
 
     while True:
         time.sleep(30)
