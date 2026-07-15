@@ -63,43 +63,33 @@ def callback(call):
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
 
 def upload(message):
-    global ep, video_counter, manual_quality
+    global ep, video_counter
 
-    if manual_quality:
-        quality = manual_quality
-    else:
-        qualities = ["480p [SD]", "720p [HD]", "1080p [FHD]"]
-        quality = qualities[video_counter % 3]
+    qualities = [
+        "480p [SD]",
+        "720p [HD]",
+        "1080p [FHD]"
+    ]
 
-    caption = f"Episode :- {ep}\n🗣 Language :- Hindi Dub\n🟡 Quality :- {quality}\n@NEW_ANIME_HINDI_DUB_OFFICIALL"
+    quality = qualities[video_counter]
+
+    caption = f"""Episode :- {ep}
+🗣 Language :- Hindi Dub
+🟡 Quality :- {quality}
+
+@NEW_ANIME_HINDI_DUB_OFFICIALL"""
 
     try:
         if message.video:
-            bot.send_video(message.chat.id, message.video.file_id, caption=caption, parse_mode="HTML")
+            bot.send_video(message.chat.id, message.video.file_id, caption=caption)
         else:
-            bot.send_document(message.chat.id, message.document.file_id, caption=caption, parse_mode="HTML")
+            bot.send_document(message.chat.id, message.document.file_id, caption=caption)
 
-        # Auto rotate
         video_counter += 1
-        if not manual_quality and video_counter % 3 == 0:
+
+        if video_counter >= 3:
+            video_counter = 0
             ep += 1
 
     except Exception as e:
         bot.reply_to(message, f"Error: {e}")
-
-@bot.message_handler(content_types=['video', 'document'])
-def handle_media(message):
-    Thread(target=upload, args=(message,), daemon=True).start()
-
-if __name__ == "__main__":
-    Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000))), daemon=True).start()
-    
-    bot.remove_webhook()
-    time.sleep(2)
-    webhook_url = os.environ.get("WEBHOOK_URL")
-    if webhook_url:
-        bot.set_webhook(url=webhook_url)
-        print("Webhook OK")
-    print("Bot Running...")
-    while True:
-        time.sleep(10)
