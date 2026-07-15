@@ -84,7 +84,7 @@ def handle_media(message):
     caption = (
         f"Episode :- {ep}\n"
         f"🗣 Language :- Hindi Dub\n"
-        f"🟡 Quality :- {current_tag}\n\n"
+        f"🟡 Quality :- {current_tag}\n"
         f"{CHANNEL_USERNAME}"
     )
 
