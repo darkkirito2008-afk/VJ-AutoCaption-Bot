@@ -277,26 +277,22 @@ def start_bot():
 # ==========================================
 # MAIN
 # ==========================================
+def media_handler(message):
 
 if __name__ == "__main__":
-
 
     Thread(
         target=run_flask,
         daemon=True
     ).start()
 
-
     start_bot()
-
 
     logger.info(
         "Bot is running..."
     )
 
-
     while True:
-
         time.sleep(30)
 # ==========================================
 # START COMMAND
